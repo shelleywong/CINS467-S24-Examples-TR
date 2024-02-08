@@ -105,6 +105,21 @@ class _MyHomePageState extends State<MyHomePage> {
           // wireframe for each widget.
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            Container(
+              alignment: Alignment.center,
+              constraints: const BoxConstraints(
+                maxHeight: 300,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30.0),
+                child: const Image(
+                  image: AssetImage(
+                    'assets/chicostatebee.jpeg',
+                  ),
+                  height: 250,
+                ),
+              ),
+            ),
             const Text(
               'You have pushed the button this many times:',
             ),
