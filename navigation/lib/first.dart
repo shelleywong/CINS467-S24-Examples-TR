@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'second.dart';
+import 'package:go_router/go_router.dart';
+
 import 'drawer.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -27,12 +28,7 @@ class _MyHomePageState extends State<MyHomePage> {
             ElevatedButton(
                 child: const Text('Open Route'),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const SecondRoute(),
-                    ),
-                  );
+                  context.go('/page2');
                 })
           ],
         ),
