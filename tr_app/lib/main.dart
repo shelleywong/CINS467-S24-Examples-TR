@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 //import 'package:shared_preferences/shared_preferences.dart';
 
-import 'storage.dart';
+//import 'storage.dart';
+import 'sqlstorage.dart';
 
 void main() {
   runApp(const MyApp());
@@ -63,7 +64,8 @@ class _MyHomePageState extends State<MyHomePage> {
   // final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
   // late Future<int> _counter;
 
-  final InputStorage _storage = InputStorage();
+  //final InputStorage _storage = InputStorage(); // path_provider (file storage)
+  final CounterStorage _storage = CounterStorage(); // sqflite (SQLite DB storage)
   int _counter = 0;
 
   Future<void> _incrementCounter() async {
@@ -105,6 +107,13 @@ class _MyHomePageState extends State<MyHomePage> {
         _counter = value;
       });
     });
+  }
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    _storage.close();
+    super.dispose();
   }
 
   @override
