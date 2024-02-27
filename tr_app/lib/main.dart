@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+//import 'package:shared_preferences/shared_preferences.dart';
+
+//import 'storage.dart';
+import 'sqlstorage.dart';
 
 void main() {
   runApp(const MyApp());
@@ -58,15 +61,36 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
-  late Future<int> _counter;
+  // final Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
+  // late Future<int> _counter;
+
+  //final InputStorage _storage = InputStorage(); // path_provider (file storage)
+  final CounterStorage _storage = CounterStorage(); // sqflite (SQLite DB storage)
+  int _counter = 0;
 
   Future<void> _incrementCounter() async {
-    final SharedPreferences prefs = await _prefs;
-    final int counter = (prefs.getInt('counter') ?? 0) + 1;
-    setState(() {
-      _counter = prefs.setInt('counter', counter).then((bool success){
-        return counter;
+    // final SharedPreferences prefs = await _prefs;
+    // final int counter = (prefs.getInt('counter') ?? 0) + 1;
+    // setState(() {
+    //   _counter = prefs.setInt('counter', counter).then((bool success){
+    //     return counter;
+    //   });
+    // });
+    await _storage.readCounter().then((value) async {
+      final counter = value + 1;
+      await _storage.writeCounter(counter);
+      setState((){
+        _counter = counter;
+      });
+    });
+  }
+
+  Future<void> _decrementCounter() async {
+    await _storage.readCounter().then((value) async {
+      final counter = value - 1;
+      await _storage.writeCounter(counter);
+      setState((){
+        _counter = counter;
       });
     });
   }
@@ -75,9 +99,21 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    _counter = _prefs.then((SharedPreferences prefs){
-      return prefs.getInt('counter') ?? 0;
+    // _counter = _prefs.then((SharedPreferences prefs){
+    //   return prefs.getInt('counter') ?? 0;
+    // });
+    _storage.readCounter().then((value){
+      setState((){
+        _counter = value;
+      });
     });
+  }
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    _storage.close();
+    super.dispose();
   }
 
   @override
@@ -150,43 +186,35 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   ),
                   Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: FutureBuilder<int>(
-                        future: _counter,
-                        builder: (BuildContext context, AsyncSnapshot<int> snapshot){
-                          switch(snapshot.connectionState){
-                            case ConnectionState.waiting:
-                              return const CircularProgressIndicator();
-                            default:
-                              if(snapshot.hasError){
-                                return Text('Error: ${snapshot.error}');
-                              } else {
-                                return Text(
-                                  '${snapshot.data}',
-                                  style: Theme.of(context).textTheme.headlineMedium,
-                                );
-                              }
-                          }
-                        },
+                    // child: Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: FutureBuilder<int>(
+                    //     future: _counter,
+                    //     builder: (BuildContext context, AsyncSnapshot<int> snapshot){
+                    //       switch(snapshot.connectionState){
+                    //         case ConnectionState.waiting:
+                    //           return const CircularProgressIndicator();
+                    //         default:
+                    //           if(snapshot.hasError){
+                    //             return Text('Error: ${snapshot.error}');
+                    //           } else {
+                    //             return Text(
+                    //               '${snapshot.data}',
+                    //               style: Theme.of(context).textTheme.headlineMedium,
+                    //             );
+                    //           }
+                    //       }
+                    //     },
+                    //   ),
+                      child: Text(
+                        _counter == 0 ? '0' : 'Count: $_counter',
+                        style: Theme.of(context).textTheme.headlineMedium,
                       ),
-                      // child: Text(
-                      //   '$_counter',
-                      //   style: Theme.of(context).textTheme.headlineMedium,
-                      // ),
-                    ),
+                    //),
                   ),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () async {
-                        final SharedPreferences prefs = await _prefs;
-                        final int counter = (prefs.getInt('counter') ?? 0) - 1;
-                        setState(() {
-                          _counter = prefs.setInt('counter', counter).then((bool success){
-                            return counter;
-                          });
-                        });
-                      },
+                      onPressed: _decrementCounter,
                       child: const Text('Decrement'),
                     ),
                   ),
