@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 //import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 //import 'storage.dart';
 //import 'sqlstorage.dart';
@@ -212,6 +212,31 @@ class _MyHomePageState extends State<MyHomePage> {
                 ],
               ),
             ),
+            StreamBuilder(
+              stream: FirebaseFirestore.instance.collection('greetings').snapshots(),
+              builder:(context, snapshot) {
+                switch(snapshot.connectionState){
+                  case ConnectionState.waiting:
+                    return const CircularProgressIndicator();
+                  default:
+                    if(snapshot.hasError){
+                      return Text('Error: ${snapshot.error}');
+                    } else {
+                      return ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: snapshot.data!.docs.length,
+                        itemBuilder:(context, index) {
+                          return Text(
+                            '${snapshot.data!.docs[index]["message"]}',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.displaySmall,
+                          );
+                        },
+                      );
+                    }
+                }
+              },
+            )
           ],
         ),
       ),
