@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 
 //import 'storage.dart';
 //import 'sqlstorage.dart';
@@ -17,11 +19,20 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MyApp());
+  if(kIsWeb){
+    runApp(const MyApp(myAppTitle: 'Web CINS467'));
+  } else if(Platform.isAndroid){
+    runApp(const MyApp(myAppTitle: 'Android CINS467'));
+  } else {
+    runApp(const MyApp(myAppTitle: 'CINS467'));
+  }
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, required this.myAppTitle});
+
+  final String myAppTitle;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -30,7 +41,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Hello CINS467!'),
+      home: MyHomePage(title: 'Hello $myAppTitle!'),
     );
   }
 }
@@ -68,6 +79,30 @@ class _MyHomePageState extends State<MyHomePage> {
     distanceFilter: 100,
   );
   late StreamSubscription<Position> positionStream;
+
+  File? _image;
+  String? _imagePath;
+
+  Future<void> _getImage() async {
+    final ImagePicker picker = ImagePicker();
+    // Capture the photo
+    final XFile? photo = await picker.pickImage(source: ImageSource.camera);
+    if(photo != null){
+      if(kIsWeb){
+        setState((){
+          _imagePath = photo.path;
+        });
+      } else {
+        setState((){
+        _image = File(photo.path);
+      });
+      }
+    } else {
+      if(kDebugMode){
+        print('No photo was captured');
+      }
+    }
+  }
 
   /// Determine the current position of the device.
   ///
@@ -190,7 +225,7 @@ class _MyHomePageState extends State<MyHomePage> {
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
         // in the middle of the parent.
-        child: Column(
+        child: ListView(
           // Column is also a layout widget. It takes a list of children and
           // arranges them vertically. By default, it sizes itself to fit its
           // children horizontally, and tries to be as tall as its parent.
@@ -204,8 +239,22 @@ class _MyHomePageState extends State<MyHomePage> {
           // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
           // action in the IDE, or press "p" in the console), to see the
           // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
+         // mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            //_image == null ? const Icon(Icons.photo, size: 100) : Image.file(_image!, height: 300),
+            _imagePath == null
+              ? const SizedBox.shrink()
+              : Image.network(_imagePath!, height: 400),
+            _image == null
+              ? const SizedBox.shrink()
+              : Image.file(_image!, height: 300),
+            Tooltip(
+              message: kIsWeb ? 'Download from the gallery' : 'Launch the camera',
+              child: ElevatedButton(
+                onPressed: _getImage,
+                child: const Icon(Icons.photo_camera),
+              ),
+            ),
             FutureBuilder(
               future: _position,
               builder: (context, snapshot){
