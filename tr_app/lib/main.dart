@@ -8,40 +8,57 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 
 //import 'storage.dart';
 //import 'sqlstorage.dart';
 import 'firestorage.dart';
 import 'firebase_options.dart';
+import 'photos.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  if(kIsWeb){
-    runApp(const MyApp(myAppTitle: 'Web CINS467'));
-  } else if(Platform.isAndroid){
-    runApp(const MyApp(myAppTitle: 'Android CINS467'));
-  } else {
-    runApp(const MyApp(myAppTitle: 'CINS467'));
-  }
+  // if(kIsWeb){
+  //   runApp(const MyApp(myAppTitle: 'Web CINS467'));
+  // } else if(Platform.isAndroid){
+  //   runApp(const MyApp(myAppTitle: 'Android CINS467'));
+  // } else {
+  //   runApp(const MyApp(myAppTitle: 'CINS467'));
+  // }
+  runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key, required this.myAppTitle});
+// GoRouter configuration
+final _router = GoRouter(
+  routes: [
+    GoRoute(
+      path: '/',
+      builder: (context, state) => const MyHomePage(title: 'Hello CINS467!'),
+    ),
+    GoRoute(
+      path: '/photos',
+      builder: (context, state) => const MyPhotoPage(title: 'CINS467 Photos!'),
+    ),
+  ],
+);
 
-  final String myAppTitle;
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Flutter Demo',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
       ),
-      home: MyHomePage(title: 'Hello $myAppTitle!'),
+      routerConfig: _router,
+      //home: const MyHomePage(title: 'Hello CINS467!'),
     );
   }
 }
@@ -221,6 +238,12 @@ class _MyHomePageState extends State<MyHomePage> {
         // Here we take the value from the MyHomePage object that was created by
         // the App.build method, and use it to set our appbar title.
         title: Text(widget.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.photo),
+            onPressed: () => context.go('/photos'),
+          )
+        ],
       ),
       body: Center(
         // Center is a layout widget. It takes a single child and positions it
