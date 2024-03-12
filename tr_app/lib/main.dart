@@ -9,6 +9,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 //import 'storage.dart';
 //import 'sqlstorage.dart';
@@ -109,7 +111,7 @@ class _MyHomePageState extends State<MyHomePage> {
         setState((){
           _imagePath = photo.path;
         });
-      } else {
+      } else { // Android/mobile
         setState((){
         _image = File(photo.path);
       });
@@ -119,6 +121,50 @@ class _MyHomePageState extends State<MyHomePage> {
         print('No photo was captured');
       }
     }
+  }
+
+  Future<void> _upload() async {
+    if(_image != null){
+      // Generate a v4 (random) id (universally unique identifier)
+      const uuid = Uuid();
+      final String uid = uuid.v4();
+      // Upload image file to storage (using uid) and generate a downloadURL
+      final String downloadURL = await _uploadFile(uid);
+      // Add downloadURL (ref to the image) to the database
+      await _addItem(downloadURL, uid);
+      // Navigate to the photos screen
+      if(mounted){
+        context.go('/photos');
+      }
+    } else {
+      if(kDebugMode){
+        print('No image to upload');
+      }
+    }
+  }
+
+  Future<String> _uploadFile(String filename) async {
+    // Create a reference to file location in Google Cloud Storage object
+    Reference ref = FirebaseStorage.instance.ref().child('$filename.jpg');
+    // Add metadata to the image file
+    final metadata = SettableMetadata(
+      contentType: 'image/jpeg',
+      contentLanguage: 'en',
+    );
+    // Upload the file to Storage
+    final UploadTask uploadTask = ref.putFile(_image!, metadata);
+    TaskSnapshot uploadResult = await uploadTask;
+    // After the upload task is complete, get a (String) download URL
+    final String downloadURL = await uploadResult.ref.getDownloadURL();
+    // Return the download URL (to be used in the database entry)
+    return downloadURL;
+  }
+
+  Future<void> _addItem(String downloadURL, String title) async {
+    await FirebaseFirestore.instance.collection('photos').add(<String, dynamic>{
+      'downloadURL': downloadURL,
+      'title': title,
+    });
   }
 
   /// Determine the current position of the device.
@@ -276,6 +322,19 @@ class _MyHomePageState extends State<MyHomePage> {
               child: ElevatedButton(
                 onPressed: _getImage,
                 child: const Icon(Icons.photo_camera),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: _upload,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+              ),
+              child: const Text(
+                'Upload Photo',
+                style: TextStyle(
+                  fontSize: 20,
+                  color: Colors.white,
+                )
               ),
             ),
             FutureBuilder(
