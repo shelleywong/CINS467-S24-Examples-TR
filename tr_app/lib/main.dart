@@ -47,7 +47,6 @@ final _router = GoRouter(
   ],
 );
 
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -88,10 +87,12 @@ class _MyHomePageState extends State<MyHomePage> {
   // late Future<int> _counter;
 
   //final InputStorage _storage = InputStorage(); // path_provider (file storage)
-  final CounterStorage _storage = CounterStorage(); // sqflite (SQLite DB storage)
+  final CounterStorage _storage =
+      CounterStorage(); // sqflite (SQLite DB storage)
   int _counter = 0;
 
   late Future<Position> _position;
+  Position? _photoPosition;
 
   final LocationSettings locationSettings = const LocationSettings(
     accuracy: LocationAccuracy.high,
@@ -101,30 +102,34 @@ class _MyHomePageState extends State<MyHomePage> {
 
   File? _image;
   String? _imagePath;
+  Uint8List? _imageForWeb;
 
   Future<void> _getImage() async {
     final ImagePicker picker = ImagePicker();
     // Capture the photo
     final XFile? photo = await picker.pickImage(source: ImageSource.camera);
-    if(photo != null){
-      if(kIsWeb){
-        setState((){
-          _imagePath = photo.path;
-        });
-      } else { // Android/mobile
-        setState((){
+    _imageForWeb = await photo!.readAsBytes();
+    //if(photo != null){
+    if (kIsWeb) {
+      setState(() {
+        _imagePath = photo.path;
+      });
+    } else {
+      // Android/mobile
+      setState(() {
         _image = File(photo.path);
       });
-      }
-    } else {
-      if(kDebugMode){
-        print('No photo was captured');
-      }
     }
+    // } else {
+    // if(kDebugMode){
+    //   print('No photo was captured');
+    // }
+    // }
   }
 
   Future<void> _upload() async {
-    if(_image != null){
+    if (_image != null || _imagePath != null) {
+      _photoPosition = await _determinePosition();
       // Generate a v4 (random) id (universally unique identifier)
       const uuid = Uuid();
       final String uid = uuid.v4();
@@ -133,38 +138,71 @@ class _MyHomePageState extends State<MyHomePage> {
       // Add downloadURL (ref to the image) to the database
       await _addItem(downloadURL, uid);
       // Navigate to the photos screen
-      if(mounted){
+      if (mounted) {
         context.go('/photos');
       }
     } else {
-      if(kDebugMode){
+      if (kDebugMode) {
         print('No image to upload');
       }
     }
   }
 
   Future<String> _uploadFile(String filename) async {
-    // Create a reference to file location in Google Cloud Storage object
-    Reference ref = FirebaseStorage.instance.ref().child('$filename.jpg');
-    // Add metadata to the image file
-    final metadata = SettableMetadata(
-      contentType: 'image/jpeg',
-      contentLanguage: 'en',
-    );
-    // Upload the file to Storage
-    final UploadTask uploadTask = ref.putFile(_image!, metadata);
-    TaskSnapshot uploadResult = await uploadTask;
-    // After the upload task is complete, get a (String) download URL
-    final String downloadURL = await uploadResult.ref.getDownloadURL();
-    // Return the download URL (to be used in the database entry)
-    return downloadURL;
+    if (kIsWeb) {
+      final storageRef = FirebaseStorage.instance.ref();
+      try {
+        // upload the raw photo data
+        TaskSnapshot uploadTask =
+            await storageRef.child('$filename.jpg').putData(
+                _imageForWeb!,
+                SettableMetadata(
+                  contentType: 'image/jpeg',
+                  contentLanguage: 'en',
+                ));
+        final String downloadURL = await uploadTask.ref.getDownloadURL();
+        return downloadURL;
+      } on FirebaseException catch (e) {
+        return '_uploadFile on web error: $e';
+      }
+    } else {
+      // Create a reference to file location in Google Cloud Storage object
+      Reference ref = FirebaseStorage.instance.ref().child('$filename.jpg');
+      // Add metadata to the image file
+      final metadata = SettableMetadata(
+        contentType: 'image/jpeg',
+        contentLanguage: 'en',
+      );
+      // Upload the file to Storage
+      final UploadTask uploadTask = ref.putFile(_image!, metadata);
+      TaskSnapshot uploadResult = await uploadTask;
+      // After the upload task is complete, get a (String) download URL
+      final String downloadURL = await uploadResult.ref.getDownloadURL();
+      // Return the download URL (to be used in the database entry)
+      return downloadURL;
+    }
   }
 
   Future<void> _addItem(String downloadURL, String title) async {
-    await FirebaseFirestore.instance.collection('photos').add(<String, dynamic>{
-      'downloadURL': downloadURL,
-      'title': title,
-    });
+    if (_photoPosition != null) {
+      await FirebaseFirestore.instance
+          .collection('photos')
+          .add(<String, dynamic>{
+        'downloadURL': downloadURL,
+        'title': title,
+        'location':
+            GeoPoint(_photoPosition!.latitude, _photoPosition!.longitude),
+        'timestamp': DateTime.now(),
+      });
+    } else {
+      await FirebaseFirestore.instance
+          .collection('photos')
+          .add(<String, dynamic>{
+        'downloadURL': downloadURL,
+        'title': title,
+        'timestamp': DateTime.now(),
+      });
+    }
   }
 
   /// Determine the current position of the device.
@@ -180,7 +218,7 @@ class _MyHomePageState extends State<MyHomePage> {
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       // Location services are not enabled don't continue
-      // accessing the position and request users of the 
+      // accessing the position and request users of the
       // App to enable the location services.
       return Future.error('Location services are disabled.');
     }
@@ -191,18 +229,18 @@ class _MyHomePageState extends State<MyHomePage> {
       if (permission == LocationPermission.denied) {
         // Permissions are denied, next time you could try
         // requesting permissions again (this is also where
-        // Android's shouldShowRequestPermissionRationale 
+        // Android's shouldShowRequestPermissionRationale
         // returned true. According to Android guidelines
         // your App should show an explanatory UI now.
         return Future.error('Location permissions are denied');
       }
     }
-    
+
     if (permission == LocationPermission.deniedForever) {
-      // Permissions are denied forever, handle appropriately. 
+      // Permissions are denied forever, handle appropriately.
       return Future.error(
-        'Location permissions are permanently denied, we cannot request permissions.');
-    } 
+          'Location permissions are permanently denied, we cannot request permissions.');
+    }
 
     // When we reach here, permissions are granted and we can
     // continue accessing the position of the device.
@@ -220,7 +258,7 @@ class _MyHomePageState extends State<MyHomePage> {
     await _storage.readCounter().then((value) async {
       final counter = value + 1;
       await _storage.writeCounter(counter);
-      setState((){
+      setState(() {
         _counter = counter;
       });
     });
@@ -230,7 +268,7 @@ class _MyHomePageState extends State<MyHomePage> {
     await _storage.readCounter().then((value) async {
       final counter = value - 1;
       await _storage.writeCounter(counter);
-      setState((){
+      setState(() {
         _counter = counter;
       });
     });
@@ -243,20 +281,22 @@ class _MyHomePageState extends State<MyHomePage> {
     // _counter = _prefs.then((SharedPreferences prefs){
     //   return prefs.getInt('counter') ?? 0;
     // });
-    _storage.readCounter().then((value){
-      setState((){
+    _storage.readCounter().then((value) {
+      setState(() {
         _counter = value;
       });
     });
     _position = _determinePosition();
-    positionStream = Geolocator.getPositionStream(
-      locationSettings: locationSettings).listen((Position? pos){
-        // Handle position changes
-        if(kDebugMode){
-          print(pos == null ? 'Position Unknown' : '${pos.latitude.toString()}, ${pos.longitude.toString()}');
-        }
+    positionStream =
+        Geolocator.getPositionStream(locationSettings: locationSettings)
+            .listen((Position? pos) {
+      // Handle position changes
+      if (kDebugMode) {
+        print(pos == null
+            ? 'Position Unknown'
+            : '${pos.latitude.toString()}, ${pos.longitude.toString()}');
       }
-    );
+    });
   }
 
   @override
@@ -308,17 +348,18 @@ class _MyHomePageState extends State<MyHomePage> {
           // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
           // action in the IDE, or press "p" in the console), to see the
           // wireframe for each widget.
-         // mainAxisAlignment: MainAxisAlignment.center,
+          // mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
             //_image == null ? const Icon(Icons.photo, size: 100) : Image.file(_image!, height: 300),
             _imagePath == null
-              ? const SizedBox.shrink()
-              : Image.network(_imagePath!, height: 400),
+                ? const SizedBox.shrink()
+                : Image.network(_imagePath!, height: 400),
             _image == null
-              ? const SizedBox.shrink()
-              : Image.file(_image!, height: 300),
+                ? const SizedBox.shrink()
+                : Image.file(_image!, height: 300),
             Tooltip(
-              message: kIsWeb ? 'Download from the gallery' : 'Launch the camera',
+              message:
+                  kIsWeb ? 'Download from the gallery' : 'Launch the camera',
               child: ElevatedButton(
                 onPressed: _getImage,
                 child: const Icon(Icons.photo_camera),
@@ -329,25 +370,24 @@ class _MyHomePageState extends State<MyHomePage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
               ),
-              child: const Text(
-                'Upload Photo',
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.white,
-                )
-              ),
+              child: const Text('Upload Photo',
+                  style: TextStyle(
+                    fontSize: 20,
+                    color: Colors.white,
+                  )),
             ),
             FutureBuilder(
               future: _position,
-              builder: (context, snapshot){
-                switch(snapshot.connectionState){
+              builder: (context, snapshot) {
+                switch (snapshot.connectionState) {
                   case ConnectionState.waiting:
                     return const CircularProgressIndicator();
                   default:
-                    if(snapshot.hasError){
+                    if (snapshot.hasError) {
                       return Text('Error: ${snapshot.error}');
                     } else {
-                      return Text('Location: ${snapshot.data}, Accuracy: ${snapshot.data!.accuracy}');
+                      return Text(
+                          'Location: ${snapshot.data}, Accuracy: ${snapshot.data!.accuracy}');
                     }
                 }
               },
@@ -405,10 +445,10 @@ class _MyHomePageState extends State<MyHomePage> {
                     //       }
                     //     },
                     //   ),
-                      child: Text(
-                        _counter == 0 ? '0' : 'Count: $_counter',
-                        style: Theme.of(context).textTheme.headlineMedium,
-                      ),
+                    child: Text(
+                      _counter == 0 ? '0' : 'Count: $_counter',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
                     //),
                   ),
                   Expanded(
@@ -421,19 +461,21 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
             ),
             StreamBuilder(
-              stream: FirebaseFirestore.instance.collection('greetings').snapshots(),
-              builder:(context, snapshot) {
-                switch(snapshot.connectionState){
+              stream: FirebaseFirestore.instance
+                  .collection('greetings')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                switch (snapshot.connectionState) {
                   case ConnectionState.waiting:
                     return const CircularProgressIndicator();
                   default:
-                    if(snapshot.hasError){
+                    if (snapshot.hasError) {
                       return Text('Error: ${snapshot.error}');
                     } else {
                       return ListView.builder(
                         shrinkWrap: true,
                         itemCount: snapshot.data!.docs.length,
-                        itemBuilder:(context, index) {
+                        itemBuilder: (context, index) {
                           return Text(
                             '${snapshot.data!.docs[index]["message"]}',
                             textAlign: TextAlign.center,

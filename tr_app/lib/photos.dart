@@ -28,6 +28,8 @@ class MyPhotoPage extends StatefulWidget {
 }
 
 class _MyPhotoPageState extends State<MyPhotoPage> {
+  final ScrollController _scrollController = ScrollController();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,8 +67,10 @@ class _MyPhotoPageState extends State<MyPhotoPage> {
               } else {
                 return Expanded(
                   child: Scrollbar(
+                    controller: _scrollController,
                     child: ListView.builder(
                       physics: const AlwaysScrollableScrollPhysics(),
+                      controller: _scrollController,
                       itemCount: snapshot.data!.docs.length,
                       itemBuilder: (context, index) {
                         return photoWidget(snapshot, index);
@@ -88,6 +92,9 @@ class _MyPhotoPageState extends State<MyPhotoPage> {
           ListTile(
             leading: const Icon(Icons.person),
             title: Text(snapshot.data!.docs[index]['title']),
+            subtitle: snapshot.data!.docs[index].data().toString().contains('timestamp')
+              ? Text(DateTime.fromMillisecondsSinceEpoch(snapshot.data!.docs[index]['timestamp'].seconds * 1000).toString())
+              : const SizedBox.shrink(),
           ),
           Image.network(snapshot.data!.docs[index]['downloadURL']),
         ],
