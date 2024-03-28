@@ -1,26 +1,19 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 //import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uuid/uuid.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 //import 'storage.dart';
 //import 'sqlstorage.dart';
-import 'firestorage.dart';
 import 'firebase_options.dart';
 import 'photos.dart';
 import 'home.dart';
 import 'createuser.dart';
 import 'profile.dart';
+import 'login.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,6 +50,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/createuser',
       builder: (context, state) => const CreateUser(title: 'Create Account'),
+    ),
+    GoRoute(
+      path: '/login',
+      builder: (context, state) => const Login(title: 'Login'),
     ),
     GoRoute(
       path: '/profile',
